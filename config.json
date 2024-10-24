@@ -1,0 +1,16 @@
+{
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "user": "user",
+        "password": "password",
+        "database": "db"
+    },
+    "ingestion_w_summarized_db": false,
+    "target_folder": "path_to_reddit_data",
+    "subreddit_list": [
+        "science"
+    ],
+    "log_frequency": 100000,
+    "log_file": "reader.log"
+}
