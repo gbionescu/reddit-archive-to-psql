@@ -17,7 +17,12 @@ Based on Academic Torrents Reddit data dump [here](https://academictorrents.com/
         - `database`: the name of the PostgreSQL database.
         - `user`: the user of the PostgreSQL database.
         - `password`: the password of the PostgreSQL database.
-    - `ingestion_w_summarized_db`: Create a summarized database with the most important fields - `True` or `False`. Saves `author`, `subreddit` and `created_utc`.
+    - `ingestion`:
+        - `push_summarized_db": Create a summarized database with the a reduced number of columns.
+        - `qsize_jobs_done": Queue size for the jobs done queue. Can be used to throttle the ingestion.
+    - `parser`:
+        - `num_workers`: the number of workers to use for parsing and pushing to the database.
+        - `qsize_to_parse`: Queue size for the json data to parse.
     - `log_file`: the file to log to.
     - `log_frequency`: Log information every `log_frequency` files.
 4. Run the project.

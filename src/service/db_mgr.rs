@@ -1,22 +1,25 @@
+use crate::service::DBTable;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use sqlx::Row;
 
-pub trait DBTable {
-    fn table_name() -> &'static str;
-    fn sql_types() -> Vec<(&'static str, &'static str)>;
-    async fn post_create_table(pool: &PgPool);
-}
-
 pub struct DBManager {
     pub pool: PgPool,
+}
+
+#[derive(PartialEq)]
+pub enum InsertStrategy {
+    InsertIgnore,
+    InsertUpdate,
 }
 
 impl DBManager {
     // Create a new DBManager instance.
     pub async fn new(host: &str, port: u16, user: &str, password: &str, db_name: &str) -> Self {
         let pool = PgPoolOptions::new()
-            .max_connections(20)
+            .max_connections(200)
+            .acquire_timeout(std::time::Duration::from_secs(300))
+            .acquire_slow_threshold(std::time::Duration::from_secs(300))
             .connect(&format!(
                 "postgres://{}:{}@{}:{}/{}",
                 user, password, host, port, db_name
@@ -85,10 +88,13 @@ impl DBManager {
     // Get the number of rows in a table.
     pub async fn get_table_count<T: DBTable>(&self) -> i64 {
         let table_name = T::table_name();
-        let row: (i64,) = sqlx::query_as(&format!("SELECT COUNT(*) FROM {}", table_name))
-            .fetch_one(&self.pool)
-            .await
-            .expect("Failed to fetch row.");
+        let row: (i64,) = sqlx::query_as(&format!(
+            "SELECT reltuples::BIGINT AS estimate FROM pg_class WHERE relname = '{}'",
+            table_name
+        ))
+        .fetch_one(&self.pool)
+        .await
+        .expect("Failed to fetch row.");
 
         row.0
     }

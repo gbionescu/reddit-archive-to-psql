@@ -1,63 +1,20 @@
+use super::db_object::DBObject;
+use super::raw_submission::RedditSubmission;
+use super::DBTable;
+use super::InsertStrategy;
+use sqlx::types::chrono::{DateTime, Utc};
 use sqlx::PgPool;
-
-use crate::service::raw_submission::{CreatedUTC, RedditSubmission};
-use crate::service::DBTable;
-
-pub const TABLE_SUBMISSIONS_SMALL: &str = "submissions_small";
 
 pub struct DBRedditSubmissionSmall {
     pub author: String,
-    pub created_utc: u64,
+    pub created_utc: DateTime<Utc>,
     pub id: String,
     pub subreddit: String,
 }
 
-impl DBRedditSubmissionSmall {
-    pub async fn insert(&self, pool: &PgPool) {
-        // Check if the submission already exists in the database.
-        let exists = sqlx::query("SELECT id FROM submissions WHERE id = $1")
-            .bind(&self.id)
-            .fetch_optional(pool)
-            .await
-            .unwrap_or_else(|err| {
-                log::error!(
-                    "[DBRedditSubmissionSmall] Failed to check if submission exists: {}",
-                    err
-                );
-                panic!("Error1");
-            });
-
-        if exists.is_some() {
-            return;
-        }
-
-        let sql = format!(
-            "INSERT INTO {} (author, created_utc, id, subreddit) VALUES ($1, $2, $3, $4)",
-            TABLE_SUBMISSIONS_SMALL
-        );
-        let timestamp_created =
-            sqlx::types::chrono::DateTime::from_timestamp(self.created_utc as i64, 0);
-
-        sqlx::query(&sql)
-            .bind(&self.author)
-            .bind(timestamp_created)
-            .bind(&self.id)
-            .bind(&self.subreddit)
-            .execute(pool)
-            .await
-            .unwrap_or_else(|err| {
-                log::error!(
-                    "[DBRedditSubmissionSmall] Failed to insert submission: {}",
-                    err
-                );
-                panic!("Error2");
-            });
-    }
-}
-
 impl DBTable for DBRedditSubmissionSmall {
     fn table_name() -> &'static str {
-        TABLE_SUBMISSIONS_SMALL
+        "submissions_small"
     }
 
     fn sql_types() -> Vec<(&'static str, &'static str)> {
@@ -73,18 +30,41 @@ impl DBTable for DBRedditSubmissionSmall {
     async fn post_create_table(_pool: &PgPool) {}
 }
 
-impl From<RedditSubmission> for DBRedditSubmissionSmall {
-    fn from(submission: RedditSubmission) -> Self {
-        let created_utc = match submission.created_utc {
-            CreatedUTC::String(timestamp) => timestamp.parse::<u64>().unwrap_or_default(),
-            CreatedUTC::Integer(timestamp) => timestamp as u64,
-        };
+impl DBObject for DBRedditSubmissionSmall {
+    fn type_name() -> &'static str {
+        "DBSubmissionSmall"
+    }
 
+    async fn insert(&self, pool: &PgPool, _strategy: InsertStrategy, _ignore: bool) {
+        let sql = format!(
+            "INSERT INTO {} (author, created_utc, id, subreddit) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+            Self::table_name()
+        );
+
+        sqlx::query(&sql)
+            .bind(&self.author)
+            .bind(self.created_utc)
+            .bind(&self.id)
+            .bind(&self.subreddit)
+            .execute(pool)
+            .await
+            .unwrap_or_else(|err| {
+                log::error!(
+                    "[DBRedditSubmissionSmall] Failed to insert submission: {}",
+                    err
+                );
+                panic!("Error2");
+            });
+    }
+}
+
+impl From<&RedditSubmission> for DBRedditSubmissionSmall {
+    fn from(submission: &RedditSubmission) -> Self {
         DBRedditSubmissionSmall {
-            author: submission.author.unwrap_or_default(),
-            created_utc: created_utc,
-            id: submission.id,
-            subreddit: submission.subreddit.unwrap_or_default(),
+            author: submission.author.clone(),
+            created_utc: DateTime::<Utc>::from(&submission.created_utc),
+            id: submission.id.clone(),
+            subreddit: submission.subreddit.clone(),
         }
     }
 }

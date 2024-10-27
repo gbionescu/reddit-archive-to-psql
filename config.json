@@ -6,11 +6,18 @@
         "password": "password",
         "database": "db"
     },
-    "ingestion_w_summarized_db": false,
+    "ingestion": {
+        "push_summarized_db": false,
+        "qsize_jobs_done": 1000
+    },
+    "parser": {
+        "num_workers": 20,
+        "qsize_to_parse": 1000
+    },
     "target_folder": "path_to_reddit_data",
     "subreddit_list": [
         "science"
     ],
-    "log_frequency": 100000,
+    "log_frequency": 1000000,
     "log_file": "reader.log"
 }

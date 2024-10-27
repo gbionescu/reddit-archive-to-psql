@@ -1,3 +1,4 @@
+use crate::service::raw_comment::RedditComment;
 use crate::service::raw_submission::RedditSubmission;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -68,7 +69,7 @@ impl TotalProgress {
     }
 
     /// Update the progress of a file.
-    pub fn update_file(&mut self, fname: &str, line: &str) {
+    pub fn update_file(&mut self, fname: &str, line: &str) -> bool {
         let file = self.files.get_mut(fname).unwrap();
 
         file.total_lines += 1;
@@ -82,7 +83,10 @@ impl TotalProgress {
             );
 
             self.save_to_file();
+            return true;
         }
+
+        false
     }
 
     /// Finish processing a file.
@@ -141,6 +145,8 @@ pub fn debug_submission(line: &str) {
             // For each line in pretty_json print the line number and the line.
             for (mut i, line) in pretty_json.lines().enumerate() {
                 i = i + 1;
+                let i = i as u64;
+                let error_line = error_line as u64;
 
                 if i < error_line - 3 || i > error_line + 3 {
                     continue;
@@ -156,6 +162,50 @@ pub fn debug_submission(line: &str) {
             }
 
             panic!("Error: {}", e);
+        }
+    };
+}
+
+pub fn debug_comment(line: &str) {
+    let data: Value = match serde_json::from_str(&line) {
+        Ok(v) => v,
+        Err(e) => {
+            panic!("Error: {} for {}", e, line);
+        }
+    };
+
+    let pretty_json = serde_json::to_string_pretty(&data).unwrap();
+
+    // Try again to deserialize the JSON object.
+    let retry: Result<RedditComment, serde_json::Error> = serde_json::from_str(&pretty_json);
+    match retry {
+        Ok(v) => v,
+        Err(e) => {
+            let error_line = e.line();
+
+            // For each line in pretty_json print the line number and the line.
+            for (mut i, line) in pretty_json.lines().enumerate() {
+                i = i + 1;
+
+                let i = i as i64;
+                let error_line = error_line as i64;
+
+                // if i < error_line - 3 || i > error_line + 3 {
+                //     continue;
+                // }
+
+                if i < error_line {
+                    log::error!("-{}: {}", i, line);
+                } else if i == error_line {
+                    log::error!(">{}: {}", i, line);
+                } else {
+                    log::error!("+{}: {}", i, line);
+                }
+            }
+
+            log::error!("Error: {}", e);
+            panic!("Error: {}", e);
+            // Kill the process.
         }
     };
 }

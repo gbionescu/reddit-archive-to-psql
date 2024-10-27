@@ -1,62 +1,19 @@
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
-
-#[derive(Serialize, Debug)]
-pub enum Edited {
-    Float(f64),
-    Bool(bool),
-}
-
-#[derive(Serialize, Debug)]
-pub enum CreatedUTC {
-    Integer(i64),
-    String(String),
-}
-
-impl<'de> Deserialize<'de> for Edited {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        if let Some(float_value) = value.as_f64() {
-            Ok(Edited::Float(float_value))
-        } else if let Some(bool_value) = value.as_bool() {
-            Ok(Edited::Bool(bool_value))
-        } else {
-            Err(serde::de::Error::custom("expected float or bool"))
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for CreatedUTC {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        if let Some(int_value) = value.as_i64() {
-            Ok(CreatedUTC::Integer(int_value))
-        } else if let Some(string_value) = value.as_str() {
-            Ok(CreatedUTC::String(string_value.to_string()))
-        } else {
-            Err(serde::de::Error::custom("expected integer or string"))
-        }
-    }
-}
+use super::raw_object::AnyTimestamp;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct RedditSubmission {
     pub archived: Option<bool>,
-    pub author: Option<String>,
+    pub author: String,
     pub author_flair_css_class: Option<String>,
     pub author_flair_text: Option<String>,
     pub brand_safe: Option<bool>,
     pub contest_mode: Option<bool>,
-    pub created_utc: CreatedUTC,
+    pub created_utc: AnyTimestamp,
     pub distinguished: Option<String>,
-    pub domain: String,
-    pub edited: Edited,
+    pub domain: Option<String>,
+    pub edited: AnyTimestamp,
     pub gilded: Option<i32>,
     pub hidden: Option<bool>,
     pub hide_score: Option<bool>,
@@ -76,14 +33,14 @@ pub struct RedditSubmission {
     pub parent_whitelist_status: Option<String>,
     pub permalink: String,
     pub pinned: Option<bool>,
-    pub retrieved_on: Option<u64>,
+    pub retrieved_on: AnyTimestamp,
     pub score: i64,
     pub secure_media: Option<serde_json::Value>,
     pub secure_media_embed: Option<serde_json::Value>,
     pub selftext: String,
     pub spoiler: Option<bool>,
     pub stickied: Option<bool>,
-    pub subreddit: Option<String>,
+    pub subreddit: String,
     pub subreddit_id: Option<String>,
     pub subreddit_type: Option<String>,
     pub suggested_sort: Option<String>,
@@ -93,4 +50,10 @@ pub struct RedditSubmission {
     pub title: String,
     pub url: String,
     pub whitelist_status: Option<String>,
+}
+
+impl From<&str> for RedditSubmission {
+    fn from(s: &str) -> Self {
+        serde_json::from_str(s).unwrap()
+    }
 }
